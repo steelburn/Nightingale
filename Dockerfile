@@ -177,6 +177,8 @@ COPY configuration/cve-mitigation/audit-go-binaries.sh \
      configuration/cve-mitigation/rebuild-go-binaries.sh \
      configuration/cve-mitigation/prune-vulnerable-go-binaries.sh \
      configuration/cve-mitigation/install-findomain.sh \
+     configuration/cve-mitigation/debian-apt-security.sh \
+     configuration/cve-mitigation/pip-security-upgrade.sh \
      /usr/local/bin/
 
 RUN set -eux; \
@@ -206,15 +208,11 @@ COPY --from=ghcr.io/rajanagori/nightingale_programming_image:stable /usr/local/g
 # Note: Java (OpenJDK 21) is already installed in the base programming image at /usr/lib/jvm/java-21-openjdk-amd64
 # JAVA_HOME and PATH are already configured in the base image, so no separate copy is needed
 
-# Apply Debian security updates after tool layers and programming copy are merged
+# Debian + Python security updates after tool layers and programming copy are merged
 RUN set -eux; \
-    export DEBIAN_FRONTEND=noninteractive; \
-    apt-get update; \
-    apt-get upgrade -y --no-install-recommends; \
-    apt-get autoremove -y --purge; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*; \
-    python3 -m pip install --upgrade --break-system-packages 'pyopenssl>=25.3.0' 'cryptography>=44.0.0' 2>/dev/null || true
+    chmod +x /usr/local/bin/debian-apt-security.sh /usr/local/bin/pip-security-upgrade.sh; \
+    /usr/local/bin/debian-apt-security.sh; \
+    /usr/local/bin/pip-security-upgrade.sh
 
 # Create python symlink so 'python' command works (many scripts expect 'python' not 'python3')
 RUN set -eux; \
@@ -230,7 +228,11 @@ RUN set -eux; \
 
 RUN set -eux; \
     chmod +x /usr/local/bin/prune-vulnerable-go-binaries.sh; \
-    TOOLS_MOBILE_VAPT=${TOOLS_MOBILE_VAPT} /usr/local/bin/prune-vulnerable-go-binaries.sh; \
+    export TOOLS_WEB_VAPT=/home/tools_web_vapt TOOLS_OSINT=/home/tools_osint \
+        TOOLS_NETWORK_VAPT=/home/tools_network_vapt TOOLS_MOBILE_VAPT=/home/tools_mobile_vapt \
+        TOOLS_RED_TEAMING=/home/tools_red_teaming TOOLS_FORENSICS=/home/tools_forensics \
+        BINARIES=/home/binaries GOPATH=/home/go; \
+    /usr/local/bin/prune-vulnerable-go-binaries.sh; \
     chmod +x /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
     /usr/local/bin/audit-go-binaries.sh --min-version 1.26.1 --strict
 

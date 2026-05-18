@@ -35,7 +35,9 @@ RUN set -eux; \
         pipx \
         hashcat \
         hashcat-data \
-        python3-setuptools; \
+        python3-setuptools \
+        perl \
+        libxml-writer-perl; \
     # Create directories
     mkdir -p /home/tools_web_vapt /home/.gf; \
     # Verify directories
