@@ -237,7 +237,7 @@ RUN set -eux; \
         BINARIES=/home/binaries GOPATH=/home/go; \
     /usr/local/bin/prune-vulnerable-go-binaries.sh; \
     chmod +x /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
-    /usr/local/bin/audit-go-binaries.sh --min-version 1.26.1 --strict
+    /usr/local/bin/audit-go-binaries.sh --min-version 1.26.2 --strict
 
 WORKDIR /home
 

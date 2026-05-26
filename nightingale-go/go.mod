@@ -2,7 +2,7 @@ module github.com/rajanagori/nightingale-go
 
 go 1.26.0
 
-toolchain go1.26.1
+toolchain go1.26.2
 
 require github.com/schollz/progressbar/v3 v3.19.0
 
