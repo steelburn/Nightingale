@@ -1,0 +1,30 @@
+# Auto-remediate bot: packages that may be proposed for addition to
+# configuration/cve-mitigation/vuln-library-purge when Trivy reports a
+# CRITICAL/HIGH CVE on them AND no apt fix is available.
+#
+# Each line is matched verbatim against `PkgName`. Wildcards are NOT supported;
+# add the explicit package names (versioned suffixes are part of the name on
+# Debian, e.g. libfreerdp2-2).
+#
+# Rules for adding entries here:
+#   - Must be a library or optional CLI not invoked by any tool baked into the
+#     image (verify via `dpkg -S` and `apt-rdepends -r` checks).
+#   - Must NOT be a runtime dep of any binary in /usr/local/bin or /home/tools_*
+#   - Must NOT be on the explicit `apt-get install` list in any Dockerfile.
+
+# GUI / display stack (Nightingale is CLI-only; no X server in container)
+libfreerdp2-2
+libfreerdp3-3
+libfreerdp-client3-3
+libwinpr2-2
+libwinpr3-3
+libgbm1
+libgl1-mesa-dri
+libglx-mesa0
+mesa-libgallium
+
+# Steganography helper with unfixed CVEs; binwalk + foremost cover its use cases
+steghide
+
+# Kernel headers we never use at runtime
+linux-libc-dev

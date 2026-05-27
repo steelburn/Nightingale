@@ -114,6 +114,16 @@ jobs:
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
 
+          # Native Trivy JSON: contains PkgName / InstalledVersion / FixedVersion / Class / Type.
+          # Consumed by the Auto-Remediate workflow to generate version bumps and PRs.
+          trivy image $PLATFORM_FLAG \
+            --format json \
+            --scanners vuln \
+            --severity CRITICAL,HIGH \
+            --timeout 60m \
+            --output artifacts/vulns-${IMAGE_NAME}.json \
+            ${{ matrix.image }}
+
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
 
@@ -124,6 +134,11 @@ jobs:
 
           if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Error: JSON SBOM file was not created."
+            exit 1
+          fi
+
+          if [[ ! -f "artifacts/vulns-${IMAGE_NAME}.json" ]]; then
+            echo "Error: Trivy JSON report was not created."
             exit 1
           fi
 
@@ -155,5 +170,42 @@ jobs:
           curl -i -s -X POST https://api.github.com/repos/${{ secrets.USERNAME }}/sbom-parser/dispatches \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
-            -d '{"event_type":"nightingale-trivy-complete",
-                 "client_payload":{"target_branch":"main"}}' | head -n 1
+            -d "{\"event_type\":\"nightingale-trivy-complete\",
+                 \"client_payload\":{\"target_branch\":\"main\",
+                                     \"trivy_run_id\":\"${{ github.run_id }}\"}}" | head -n 1
+
+  notify_gui_auto_remediate:
+    name: Notify Nightingale-GUI repo
+    runs-on: ubuntu-latest
+    needs: scan
+    if: ${{ success() }}
+    steps:
+      - name: Trigger Nightingale-GUI repository_dispatch
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          # The GUI repo's auto-remediate.yml listens for this event and
+          # cross-repo-downloads our vulns-*.json artifacts.
+          curl -i -s -X POST https://api.github.com/repos/${{ secrets.USERNAME }}/Nightingale-GUI/dispatches \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -d "{\"event_type\":\"nightingale-trivy-complete\",
+                 \"client_payload\":{\"target_branch\":\"main\",
+                                     \"trivy_run_id\":\"${{ github.run_id }}\"}}" | head -n 1
+
+  trigger_auto_remediate:
+    name: Trigger Auto-Remediate workflow
+    runs-on: ubuntu-latest
+    needs: scan
+    if: ${{ success() }}
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch auto-remediate workflow with this run's id
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run auto-remediate.yml \
+            --ref ${{ github.ref_name }} \
+            -f trivy_run_id=${{ github.run_id }} \
+            --repo ${{ github.repository }}

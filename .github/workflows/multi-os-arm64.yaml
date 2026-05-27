@@ -464,7 +464,7 @@ jobs:
         docker pull --platform linux/arm64 "${IMAGE}"
         docker run --rm --platform linux/arm64 \
           --entrypoint /usr/local/bin/audit-go-binaries.sh \
-          "${IMAGE}" --min-version 1.26.2 --strict
+          "${IMAGE}" --strict
 
     - name: Post-build prune
       if: always()

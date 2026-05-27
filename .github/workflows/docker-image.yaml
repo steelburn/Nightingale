@@ -463,7 +463,7 @@ jobs:
         IMAGE="${{ env.DOCKER_REGISTRY }}/${{ env.USERNAME }}/nightingale:stable"
         docker pull "${IMAGE}"
         docker run --rm --entrypoint /usr/local/bin/audit-go-binaries.sh \
-          "${IMAGE}" --min-version 1.26.2 --strict
+          "${IMAGE}" --strict
 
     - name: Post-build prune
       if: always()

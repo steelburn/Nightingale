@@ -180,6 +180,7 @@ COPY configuration/cve-mitigation/audit-go-binaries.sh \
      configuration/cve-mitigation/debian-apt-security.sh \
      configuration/cve-mitigation/pip-security-upgrade.sh \
      /usr/local/bin/
+COPY configuration/cve-mitigation/go-min-version.txt /usr/local/share/nightingale/go-min-version.txt
 
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
@@ -234,7 +235,7 @@ RUN set -eux; \
         BINARIES=/home/binaries GOPATH=/home/go; \
     /usr/local/bin/prune-vulnerable-go-binaries.sh; \
     chmod +x /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
-    /usr/local/bin/audit-go-binaries.sh --min-version 1.26.2 --strict
+    /usr/local/bin/audit-go-binaries.sh --strict
 
 WORKDIR /home
 

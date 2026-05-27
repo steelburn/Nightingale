@@ -2,6 +2,15 @@
 password.txt
 vulnerability-reports/
 .DS_Store
+
+# auto-remediate helper byproducts
+__pycache__/
+*.pyc
+.venv-auto-remediate-test/
+trivy-artifacts/
+remediation-plan.json
+pr-body.md
+summary.md
 # nightingale-go
 .github/workflows/test.txt
 nightingale-go/dist
