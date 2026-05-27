@@ -43,12 +43,27 @@ log = logging.getLogger("auto-remediate")
 
 
 def _max_version(values: list[str]) -> str:
+    """Pick the highest PEP-440-parseable version from a list of candidates.
+
+    Trivy sometimes reports multiple FixedVersion entries for a single CVE
+    (e.g. backport chains like minimatch "10.2.3, 9.0.7, 8.0.6, ..."), packed
+    into one comma-separated string. We split those into individual semvers
+    before ranking so we never emit a multi-value pin into a shell script.
+    """
     if not values:
         return ""
+    flat: list[str] = []
+    for raw in values:
+        for part in str(raw).split(","):
+            part = part.strip()
+            if part:
+                flat.append(part)
+    if not flat:
+        return ""
     if Version is None:
-        return max(values)
+        return max(flat)
     parsed: list[tuple[Version, str]] = []
-    for v in values:
+    for v in flat:
         try:
             parsed.append((Version(v), v))
         except InvalidVersion:
@@ -56,7 +71,7 @@ def _max_version(values: list[str]) -> str:
     if parsed:
         parsed.sort(key=lambda p: p[0])
         return parsed[-1][1]
-    return max(values)
+    return max(flat)
 
 
 def build_plan(

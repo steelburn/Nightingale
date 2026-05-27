@@ -70,6 +70,51 @@ def _version_gt(a: str, b: str) -> bool:
         return a > b
 
 
+_INVALID_PIN_CHARS = set(" ,\t\n\r'\"")
+
+
+def _is_pin_safe(version: str) -> bool:
+    """Reject pin values that would corrupt the target shell script.
+
+    Trivy occasionally emits multi-value `FixedVersion` strings (split upstream
+    by the parser, but defence-in-depth here) or stray whitespace. Anything
+    that contains a comma, whitespace, or quote characters is unsafe to drop
+    into a single-quoted pin like `'pkg>=X'`.
+    """
+    if not version:
+        return False
+    return not any(ch in _INVALID_PIN_CHARS for ch in version)
+
+
+def _filter_safe(
+    items: dict[str, str],
+    plan_cves: dict[str, list[str]],
+    result: PatchResult,
+    file_path: Path,
+    repo: Path,
+    *,
+    label: str,
+) -> dict[str, str]:
+    """Return only items with sane version strings; flag the rest for review."""
+    safe: dict[str, str] = {}
+    for pkg, ver in items.items():
+        if _is_pin_safe(ver):
+            safe[pkg] = ver
+            continue
+        log.warning("%s skipped: unsafe version %r for %s", label, ver, pkg)
+        result.needs_manual.append(
+            PatchAction(
+                file=str(file_path.relative_to(repo)),
+                description=(
+                    f"could not pin {pkg} -- Trivy reported a non-canonical "
+                    f"version string ({ver!r}); pin manually"
+                ),
+                cve_ids=plan_cves.get(pkg, []),
+            )
+        )
+    return safe
+
+
 # ---------------------------------------------------------------------------
 # pip
 # ---------------------------------------------------------------------------
@@ -90,6 +135,10 @@ def patch_pip(
     if not file_path.exists():
         log.warning("pip mitigation script not found: %s", file_path)
         return
+
+    # Drop any pin whose computed target version is malformed; surface as
+    # needs-manual so the reviewer knows the bot saw the CVE but couldn't pin.
+    items = _filter_safe(items, plan_cves, result, file_path, repo, label="pip pin")
 
     original = _read(file_path)
     text = original
@@ -189,6 +238,8 @@ def patch_npm(
     if not file_path.exists():
         log.warning("npm mitigation script not found: %s", file_path)
         return
+
+    items = _filter_safe(items, plan_cves, result, file_path, repo, label="npm pin")
 
     original = _read(file_path)
     text = original
