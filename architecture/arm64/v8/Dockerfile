@@ -178,6 +178,7 @@ COPY configuration/cve-mitigation/audit-go-binaries.sh \
      configuration/cve-mitigation/rebuild-go-binaries.sh \
      configuration/cve-mitigation/prune-vulnerable-go-binaries.sh \
      configuration/cve-mitigation/install-findomain.sh \
+     configuration/cve-mitigation/install-gitleaks.sh \
      configuration/cve-mitigation/debian-apt-security.sh \
      configuration/cve-mitigation/pip-security-upgrade.sh \
      /usr/local/bin/
@@ -237,7 +238,8 @@ RUN set -eux; \
         TOOLS_RED_TEAMING=/home/tools_red_teaming TOOLS_FORENSICS=/home/tools_forensics \
         BINARIES=/home/binaries GOPATH=/home/go; \
     /usr/local/bin/prune-vulnerable-go-binaries.sh; \
-    chmod +x /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
+    chmod +x /usr/local/bin/install-gitleaks.sh /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
+    /usr/local/bin/install-gitleaks.sh "${TOOLS_WEB_VAPT}/gitleaks"; \
     /usr/local/bin/audit-go-binaries.sh --strict
 
 WORKDIR /home

@@ -162,14 +162,12 @@ RUN set -eux; \
     /tmp/install-trufflehog.sh /usr/local/bin; \
     rm -f /tmp/install-trufflehog.sh
 
-# Build Gitleaks (Git Secret Scanner)
+# Build Gitleaks (Git Secret Scanner) with image Go toolchain
+COPY configuration/cve-mitigation/install-gitleaks.sh /tmp/install-gitleaks.sh
 RUN set -eux; \
-    echo "Building Gitleaks..."; \
-    cd gitleaks; \
-    if [ -f Makefile ]; then \
-        make build || echo "Warning: Gitleaks build failed"; \
-    fi; \
-    cd ..
+    chmod +x /tmp/install-gitleaks.sh; \
+    /tmp/install-gitleaks.sh "${TOOLS_WEB_VAPT}/gitleaks"; \
+    rm -f /tmp/install-gitleaks.sh
 
 # Install Ghauri (SQL Injection)
 RUN set -eux; \
