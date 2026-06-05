@@ -457,14 +457,19 @@ jobs:
           ${{ env.DOCKER_REGISTRY }}/${{ env.USERNAME }}/nightingale:arm64
           ${{ env.DOCKER_REGISTRY }}/${{ env.USERNAME }}/nightingale:${{ env.COMMIT_HASH }}
 
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: linux/arm64
+
     - name: Audit Go stdlib in final image
       run: |
         set -eux
-        IMAGE="${{ env.DOCKER_REGISTRY }}/${{ env.USERNAME }}/nightingale:arm64"
+        IMAGE="${{ env.DOCKER_REGISTRY }}/${{ env.USERNAME }}/nightingale@${{ steps.image.outputs.digest }}"
         docker pull --platform linux/arm64 "${IMAGE}"
         docker run --rm --platform linux/arm64 \
-          --entrypoint /usr/local/bin/audit-go-binaries.sh \
-          "${IMAGE}" --strict
+          --entrypoint /bin/bash \
+          "${IMAGE}" -c '/usr/local/bin/audit-go-binaries.sh --strict'
 
     - name: Post-build prune
       if: always()
