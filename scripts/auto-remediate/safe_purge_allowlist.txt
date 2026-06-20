@@ -28,3 +28,6 @@ steghide
 
 # Kernel headers we never use at runtime
 linux-libc-dev
+
+# CUPS printing stack (CLI-only container; pulled in as a transitive dep)
+libcups2t64
