@@ -34,6 +34,13 @@ except ImportError:  # tests may run without dep installed
 
 log = logging.getLogger(__name__)
 
+_DRY_RUN = False
+
+
+def set_dry_run(enabled: bool) -> None:
+    global _DRY_RUN
+    _DRY_RUN = enabled
+
 
 @dataclass
 class PatchAction:
@@ -56,6 +63,8 @@ def _read(path: Path) -> str:
 def _write_if_changed(path: Path, new_content: str, *, original: str) -> bool:
     if new_content == original:
         return False
+    if _DRY_RUN:
+        return True
     path.write_text(new_content, encoding="utf-8")
     return True
 
@@ -450,7 +459,8 @@ def patch_go_min_version(repo: Path, recommended: str | None, result: PatchResul
 
     # 1) Bump the single source of truth if it lags behind.
     if version_file.exists() and (not current or _version_gt(recommended, current)):
-        version_file.write_text(f"{recommended}\n", encoding="utf-8")
+        if not _DRY_RUN:
+            version_file.write_text(f"{recommended}\n", encoding="utf-8")
         result.applied.append(
             PatchAction(
                 file=str(version_file.relative_to(repo)),

@@ -238,9 +238,8 @@ RUN set -eux; \
         TOOLS_RED_TEAMING=/home/tools_red_teaming TOOLS_FORENSICS=/home/tools_forensics \
         BINARIES=/home/binaries GOPATH=/home/go; \
     /usr/local/bin/prune-vulnerable-go-binaries.sh; \
-    chmod +x /usr/local/bin/install-gitleaks.sh /usr/local/bin/audit-go-binaries.sh /usr/local/bin/rebuild-go-binaries.sh; \
-    /usr/local/bin/install-gitleaks.sh "${TOOLS_WEB_VAPT}/gitleaks"; \
-    /usr/local/bin/audit-go-binaries.sh --strict
+    chmod +x /usr/local/bin/rebuild-go-binaries.sh; \
+    /usr/local/bin/rebuild-go-binaries.sh --audit
 
 WORKDIR /home
 

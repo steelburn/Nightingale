@@ -222,6 +222,15 @@ def apply_plan(plan: dict, repo: Path) -> update_mitigations.PatchResult:
     return result
 
 
+def preview_plan(plan: dict, repo: Path) -> update_mitigations.PatchResult:
+    """Compute patch actions without mutating files (for --dry-run)."""
+    update_mitigations.set_dry_run(True)
+    try:
+        return apply_plan(plan, repo)
+    finally:
+        update_mitigations.set_dry_run(False)
+
+
 # ---------------------------------------------------------------------------
 # Rendering: PR body + step summary
 # ---------------------------------------------------------------------------
@@ -408,8 +417,8 @@ def main(argv: list[str] | None = None) -> int:
     plan = build_plan(findings, use_osv=not args.no_osv)
 
     if args.dry_run:
-        log.info("Dry run: skipping file mutations")
-        result = update_mitigations.PatchResult()
+        log.info("Dry run: computing patch plan without writing files")
+        result = preview_plan(plan, args.repo)
     else:
         result = apply_plan(plan, args.repo)
 
