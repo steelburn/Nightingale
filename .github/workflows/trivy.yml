@@ -9,6 +9,9 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  TRIVY_VERSION: "0.74.0"
+
 jobs:
   setup:
     name: Fetch Images from GitHub Container Registry
@@ -22,7 +25,7 @@ jobs:
       - name: Authenticate with GitHub Container Registry
         env:
           CR_PAT: ${{ secrets.TOKEN }}
-        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+        run: echo "$CR_PAT" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
       - name: Fetch Images with Stable and ARM Tags
         id: fetch_images
@@ -42,87 +45,111 @@ jobs:
 
           echo "Used images: ${SELECTED_IMAGES[@]}"
 
-          # Setting the output for the GitHub Actions workflow
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
+          echo "images=$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")" >> "$GITHUB_OUTPUT"
+
+  prepare_db:
+    name: Warm Trivy databases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Trivy
+        run: |
+          wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb"
+          sudo dpkg -i "trivy_${TRIVY_VERSION}_Linux-64bit.deb"
+          rm "trivy_${TRIVY_VERSION}_Linux-64bit.deb"
+
+      # Shared by every matrix cell. Pre-downloading the Java DB avoids the
+      # PROTOCOL_ERROR Trivy hits when it fetches javadb mid-scan.
+      - name: Cache Trivy DBs
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/trivy/db
+            ~/.cache/trivy/java-db
+          key: ${{ runner.os }}-trivy-dbs-${{ env.TRIVY_VERSION }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-trivy-dbs-${{ env.TRIVY_VERSION }}-
+
+      - name: Download vulnerability and Java DBs
+        run: |
+          trivy image --download-db-only --skip-version-check
+          trivy image --download-java-db-only --skip-version-check
 
   scan:
     name: Run Trivy Scan and Generate SBOM
-    needs: setup
+    needs: [setup, prepare_db]
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     strategy:
+      fail-fast: false
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
     steps:
       - name: Install Trivy
         run: |
-          echo "Installing Trivy..."
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.69.2/trivy_0.69.2_Linux-64bit.deb
-          sudo dpkg -i trivy_0.69.2_Linux-64bit.deb
-          rm trivy_0.69.2_Linux-64bit.deb
+          wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb"
+          sudo dpkg -i "trivy_${TRIVY_VERSION}_Linux-64bit.deb"
+          rm "trivy_${TRIVY_VERSION}_Linux-64bit.deb"
 
-      - name: Cache Trivy DB
-        uses: actions/cache@v4
+      - name: Cache Trivy DBs
+        uses: actions/cache@v6
         with:
-          path: ~/.cache/trivy/db
-          key: ${{ runner.os }}-trivy-db-${{ matrix.image }}-${{ github.sha }}
+          path: |
+            ~/.cache/trivy/db
+            ~/.cache/trivy/java-db
+          key: ${{ runner.os }}-trivy-dbs-${{ env.TRIVY_VERSION }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-trivy-db-${{ matrix.image }}-
-
-      - name: Refresh Trivy DB if necessary
-        run: |
-          echo "Checking if Trivy vulnerability database needs to be refreshed..."
-          DB_PATH=~/.cache/trivy/db
-          if [[ ! -f "$DB_PATH" ]] || [[ $(find $DB_PATH -mmin +60) ]]; then
-            echo "Refreshing Trivy vulnerability database..."
-            trivy image --download-db-only
-          else
-            echo "Trivy DB is up-to-date, no need to refresh."
-          fi
+            ${{ runner.os }}-trivy-dbs-${{ env.TRIVY_VERSION }}-
 
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Run Trivy Vulnerability Scanner
+      - name: Log in to GHCR and pull image
+        env:
+          CR_PAT: ${{ secrets.TOKEN }}
         run: |
-          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          echo "Scanning ${{ matrix.image }}..."
-          mkdir -p artifacts
-          echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
-
-          # Detect if the image is ARM64 or not
+          echo "$CR_PAT" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           if [[ "${{ matrix.image }}" == *":arm64" ]]; then
-            PLATFORM_FLAG="--platform linux/arm64"
+            docker pull --platform linux/arm64 "${{ matrix.image }}"
           else
-            PLATFORM_FLAG=""
+            docker pull "${{ matrix.image }}"
           fi
 
-          echo "Using PLATFORM_FLAG: $PLATFORM_FLAG"
+      - name: Run Trivy Vulnerability Scanner
+        run: |
+          set -euo pipefail
+          IMAGE="${{ matrix.image }}"
+          IMAGE_NAME=$(echo "$IMAGE" | sed 's/[^a-zA-Z0-9]/_/g')
+          mkdir -p artifacts
 
-          trivy image $PLATFORM_FLAG \
-            --format sarif \
-            --scanners vuln \
-            --severity CRITICAL,HIGH \
-            --timeout 60m \
-            --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
-            ${{ matrix.image }}
+          ARGS=(--image-src docker --scanners vuln --severity CRITICAL,HIGH --timeout 60m --skip-version-check)
+          if [[ "$IMAGE" == *":arm64" ]]; then
+            ARGS+=(--platform linux/arm64)
+          fi
 
-          trivy image $PLATFORM_FLAG \
-            --format cyclonedx \
-            --scanners vuln \
-            --severity CRITICAL,HIGH \
-            --timeout 60m \
-            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
-            ${{ matrix.image }}
+          echo "Scanning $IMAGE with args: ${ARGS[*]}"
 
-          # Native Trivy JSON: contains PkgName / InstalledVersion / FixedVersion / Class / Type.
-          # Consumed by the Auto-Remediate workflow to generate version bumps and PRs.
-          trivy image $PLATFORM_FLAG \
-            --format json \
-            --scanners vuln \
-            --severity CRITICAL,HIGH \
-            --timeout 60m \
-            --output artifacts/vulns-${IMAGE_NAME}.json \
-            ${{ matrix.image }}
+          # PROTOCOL_ERROR on a layer stream is usually a one-shot registry flake.
+          run_trivy() {
+            local format="$1"
+            local output="$2"
+            local attempt=1
+            local max=2
+            until trivy image "${ARGS[@]}" --format "$format" --output "$output" "$IMAGE"; do
+              if (( attempt >= max )); then
+                echo "Trivy $format scan failed after ${max} attempts."
+                return 1
+              fi
+              echo "Trivy $format scan failed (attempt ${attempt}/${max}); retrying in 15s..."
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+
+          run_trivy sarif "artifacts/trivy-results-${IMAGE_NAME}.sarif"
+          run_trivy cyclonedx "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json"
+          # Native Trivy JSON: PkgName / InstalledVersion / FixedVersion / Class / Type.
+          # Consumed by Auto-Remediate for version bumps and PRs.
+          run_trivy json "artifacts/vulns-${IMAGE_NAME}.json"
 
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
@@ -144,7 +171,7 @@ jobs:
 
       - name: Set Image Name for Upload
         id: set_image_name
-        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
+        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> "$GITHUB_ENV"
 
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4
