@@ -30,12 +30,12 @@ RUN set -eux; \
 
 ###############################################################################
 # Stage 2: Python 3 Environment
-# Purpose: Python 3.12 with virtual environment and pipx
+# Purpose: Python 3.14 with virtual environment and pipx
 ###############################################################################
-FROM python:3.14.3-slim AS python3
+FROM python:3.14.6-slim AS python3
 
 LABEL stage="python3" \
-      description="Python 3.12 environment with pipx"
+      description="Python 3.14 environment with pipx"
 
 RUN set -eux; \
     apt-get update; \
@@ -54,12 +54,12 @@ RUN set -eux; \
 
 ###############################################################################
 # Stage 3: Ruby Environment
-# Purpose: Ruby 3.4 with nokogiri gem
+# Purpose: Ruby 4.0 with nokogiri gem
 ###############################################################################
-FROM ruby:4.0.2-slim AS ruby-builder
+FROM ruby:4.0.5-slim AS ruby-builder
 
 LABEL stage="ruby" \
-      description="Ruby 3.4 environment with nokogiri"
+      description="Ruby 4.0 environment with nokogiri"
 
 RUN set -eux; \
     # Install nokogiri (commonly needed for security tools)
@@ -226,8 +226,8 @@ CMD ["/bin/bash"]
 # docker build -f Dockerfiles/programming_langauge.Dockerfile -t nightingale_programming_image:arm64 .
 #
 # Included Languages:
-# - Python 3.12.11
-# - Ruby 3.4.5
+# - Python 3.14.6
+# - Ruby 4.0.5
 # - Go 1.26.7
 # - Java OpenJDK 21 LTS
 # - Node.js 18.20.4
