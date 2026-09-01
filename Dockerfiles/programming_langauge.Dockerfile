@@ -73,7 +73,7 @@ RUN set -eux; \
 ###############################################################################
 FROM base AS go-builder
 
-ARG GO_VERSION=1.26.3
+ARG GO_VERSION=1.26.7
 
 LABEL stage="go" \
       description="Go ${GO_VERSION} environment"
@@ -227,7 +227,7 @@ CMD ["/bin/bash"]
 # Included Languages:
 # - Python 3.12.11
 # - Ruby 3.4.5
-# - Go 1.26.2
+# - Go 1.26.7
 # - Java OpenJDK 21 LTS
 # - Node.js 18.20.4
 #

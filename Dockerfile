@@ -181,6 +181,7 @@ COPY configuration/cve-mitigation/audit-go-binaries.sh \
      configuration/cve-mitigation/debian-apt-security.sh \
      configuration/cve-mitigation/pip-security-upgrade.sh \
      /usr/local/bin/
+COPY --chmod=755 configuration/modules-installation/go-install-modules.sh /usr/local/bin/go-install-modules
 COPY configuration/cve-mitigation/go-min-version.txt /usr/local/share/nightingale/go-min-version.txt
 
 RUN set -eux; \
@@ -229,13 +230,14 @@ RUN set -eux; \
     command -v python >/dev/null || command -v python3 >/dev/null || { echo "WARNING: Python not found"; }
 
 RUN set -eux; \
-    chmod +x /usr/local/bin/prune-vulnerable-go-binaries.sh; \
+    chmod +x /usr/local/bin/prune-vulnerable-go-binaries.sh \
+             /usr/local/bin/rebuild-go-binaries.sh \
+             /usr/local/bin/go-install-modules; \
     export TOOLS_WEB_VAPT=/home/tools_web_vapt TOOLS_OSINT=/home/tools_osint \
         TOOLS_NETWORK_VAPT=/home/tools_network_vapt TOOLS_MOBILE_VAPT=/home/tools_mobile_vapt \
         TOOLS_RED_TEAMING=/home/tools_red_teaming TOOLS_FORENSICS=/home/tools_forensics \
         BINARIES=/home/binaries GOPATH=/home/go; \
     /usr/local/bin/prune-vulnerable-go-binaries.sh; \
-    chmod +x /usr/local/bin/rebuild-go-binaries.sh; \
     /usr/local/bin/rebuild-go-binaries.sh --audit
 
 WORKDIR /home
