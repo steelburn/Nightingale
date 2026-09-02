@@ -1,0 +1,106 @@
+name: Build push and sign
+description: Build one image with Buildx, push it to GHCR, then Cosign-sign and attest the digest.
+inputs:
+  file:
+    description: Dockerfile path relative to the repository context.
+    required: true
+  platforms:
+    description: Target platform passed to build-push-action, such as linux/amd64.
+    required: true
+  image-name:
+    description: Image path without registry, for example rajanagori/nightingale.
+    required: true
+  image-tag:
+    description: Floating tag written next to the short commit hash (stable or arm64).
+    required: true
+  commit-hash:
+    description: Short commit hash used as the second image tag.
+    required: true
+  driver:
+    description: Buildx driver from docker-login-buildx; GHA cache is skipped for docker.
+    required: true
+  build-args:
+    description: Optional KEY=value lines for docker/build-push-action.
+    required: false
+    default: ''
+  registry:
+    description: OCI registry hostname.
+    required: false
+    default: ghcr.io
+outputs:
+  digest:
+    description: Pushed image digest from build-push-action.
+    value: ${{ steps.image.outputs.digest }}
+runs:
+  using: composite
+  steps:
+    - name: Build and Push Image (with cache)
+      if: ${{ inputs.driver != 'docker' }}
+      uses: docker/build-push-action@v7
+      id: build-cache
+      with:
+        context: .
+        file: ${{ inputs.file }}
+        platforms: ${{ inputs.platforms }}
+        push: true
+        provenance: mode=max
+        sbom: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: ${{ inputs.build-args }}
+        tags: |
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.commit-hash }}
+
+    - name: Build and Push Image (no cache, docker driver)
+      if: ${{ inputs.driver == 'docker' }}
+      uses: docker/build-push-action@v7
+      id: build-nocache
+      with:
+        context: .
+        file: ${{ inputs.file }}
+        platforms: ${{ inputs.platforms }}
+        push: true
+        provenance: mode=max
+        sbom: true
+        build-args: ${{ inputs.build-args }}
+        tags: |
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.commit-hash }}
+
+    - name: Resolve pushed image digest
+      id: image
+      shell: bash
+      run: |
+        set -euo pipefail
+        digest=""
+        if [ -n "${{ steps.build-cache.outputs.digest }}" ]; then
+          digest="${{ steps.build-cache.outputs.digest }}"
+        elif [ -n "${{ steps.build-nocache.outputs.digest }}" ]; then
+          digest="${{ steps.build-nocache.outputs.digest }}"
+        fi
+        if [ -z "${digest}" ]; then
+          echo "ERROR: no image digest from build steps" >&2
+          exit 1
+        fi
+        echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+    - name: Sign and attest container image
+      if: steps.image.outputs.digest != ''
+      uses: ./.github/actions/sign-and-attest-container
+      with:
+        image-name: ${{ inputs.image-name }}
+        digest: ${{ steps.image.outputs.digest }}
+        tags: |
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.commit-hash }}
+
+    - name: Post-build prune
+      if: always()
+      shell: bash
+      run: |
+        set -eux
+        docker buildx prune -af || true
+        docker builder prune -af || true
+        docker system prune -af --volumes || true
+        df -h

@@ -1,0 +1,79 @@
+name: GHCR login and Buildx
+description: Free runner disk, check GHCR secrets, log in, set USERNAME and COMMIT_HASH, then start Buildx.
+inputs:
+  token:
+    description: GHCR token used by docker/login-action.
+    required: true
+  username:
+    description: GHCR username secret; also used to sanity-check credentials.
+    required: true
+outputs:
+  username:
+    description: Lowercase GitHub owner used in image names.
+    value: ${{ steps.user.outputs.username }}
+  commit-hash:
+    description: First seven characters of github.sha.
+    value: ${{ steps.hash.outputs.commit_hash }}
+  driver:
+    description: Active Buildx driver name from docker buildx ls.
+    value: ${{ steps.bxl.outputs.driver }}
+runs:
+  using: composite
+  steps:
+    - name: Maximize runner disk space
+      shell: bash
+      run: |
+        set -eux
+        echo "=== BEFORE CLEANUP ==="; df -h
+        sudo du -sh /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup 2>/dev/null || true
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup || true
+        sudo docker system prune -af --volumes || true
+        echo "=== AFTER CLEANUP ==="; df -h
+
+    - name: Validate Secrets
+      shell: bash
+      run: |
+        if [[ -z "${{ inputs.token }}" || -z "${{ inputs.username }}" ]]; then
+          echo "Error: Missing registry credentials"
+          exit 1
+        fi
+
+    - name: Login to GHCR
+      uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ inputs.username }}
+        password: ${{ inputs.token }}
+
+    - name: Set Username to Lowercase
+      id: user
+      shell: bash
+      run: |
+        USERNAME_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        echo "USERNAME=$USERNAME_LOWER" >> "$GITHUB_ENV"
+        echo "username=$USERNAME_LOWER" >> "$GITHUB_OUTPUT"
+
+    - name: Get Commit Hash
+      id: hash
+      shell: bash
+      run: |
+        COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+        echo "COMMIT_HASH=$COMMIT_HASH" >> "$GITHUB_ENV"
+        echo "commit_hash=$COMMIT_HASH" >> "$GITHUB_OUTPUT"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+      with:
+        buildkitd-flags: --oci-worker-gc --oci-worker-gc-keepstorage 8000000000
+        driver: docker-container
+        install: true
+        use: true
+
+    - name: Check Buildx driver
+      id: bxl
+      shell: bash
+      run: |
+        set -e
+        docker buildx ls
+        DRIVER=$(docker buildx ls | awk '/\*/{print $2}')
+        echo "driver=$DRIVER" >> "$GITHUB_OUTPUT"

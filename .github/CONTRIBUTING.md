@@ -17,8 +17,11 @@ Welcome! Your contributions help make Nightingale a powerful, secure toolkit. Pl
 # Build default image from repo root
 docker build -t nightingale:local .
 
-# Build ARM64 image
-docker buildx build --platform linux/arm64 -t nightingale:arm64-local architecture/arm64/v8
+# ARM64: same Dockerfile, different build-args
+docker buildx build --platform linux/arm64 \
+  --build-arg IMAGE_TAG=arm64 --build-arg ARCH=arm64 \
+  --build-arg EXTRA_APT_PACKAGES=netcat-openbsd \
+  -t nightingale:arm64-local .
 
 # Run local image
 docker run --rm -it -p 8080:7681 nightingale:local ttyd -p 7681 bash
