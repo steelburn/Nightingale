@@ -436,7 +436,6 @@ GO_VERSION_TARGETS: dict[str, list[tuple[str, "re.Pattern[str]", str]]] = {
     # `FROM golang:X.Y.Z-alpine...` builder stages used in the GUI repo
     "from_golang": [
         ("Dockerfile", _FROM_GOLANG_RE, "FROM golang"),
-        ("architecture/arm64/v8/Dockerfile", _FROM_GOLANG_RE, "FROM golang"),
         ("gui/go_backend/Dockerfile", _FROM_GOLANG_RE, "FROM golang"),
         ("gui/go_backend/vscode_proxy/Dockerfile", _FROM_GOLANG_RE, "FROM golang"),
     ],

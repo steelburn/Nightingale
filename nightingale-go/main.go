@@ -156,7 +156,7 @@ func buildDockerImage(arch string) {
 	case "amd":
 		cmd = shellCommand("cd Nightingale && docker build -t rajanagori/nightingale:stable .")
 	case "arm":
-		cmd = shellCommand("cd Nightingale/architecture/arm64/v8 && docker buildx build --no-cache --platform linux/arm64 -t rajanagori/nightingale:arm64 .")
+		cmd = shellCommand("cd Nightingale && docker buildx build --no-cache --platform linux/arm64 --build-arg IMAGE_TAG=arm64 --build-arg ARCH=arm64 --build-arg EXTRA_APT_PACKAGES=netcat-openbsd -t rajanagori/nightingale:arm64 .")
 	default:
 		fmt.Println("Invalid architecture")
 		return

@@ -138,9 +138,11 @@ open http://localhost:8080
 # Build optimized main image
 docker build -t nightingale:stable .
 
-# Build optimized ARM64 image
-cd architecture/arm64/v8
-docker buildx build --platform linux/arm64 -t nightingale:arm64 .
+# ARM64 uses the same Dockerfile with tag/arch args
+docker buildx build --platform linux/arm64 \
+  --build-arg IMAGE_TAG=arm64 --build-arg ARCH=arm64 \
+  --build-arg EXTRA_APT_PACKAGES=netcat-openbsd \
+  -t nightingale:arm64 .
 ```
 
 ---
@@ -160,17 +162,17 @@ Some of the best features are listed below; I would highly recommend going throu
 ### Pros
 
 - Pre-installed penetration testing tools and frameworks
-- ﻿﻿Consistent and repeatable testing environments via Docker
-- ﻿﻿Fast booting and tearing down of testing environments
-- ﻿﻿Resource-efficient operation suitable for users with limited resources
-- ﻿﻿Browser-based access using the local IP address
-- ﻿﻿Platform independence, enhancing accessibility and usability
-- ﻿﻿Go binary support for deploying Nightingale on any architecture.
-- ﻿﻿Compatibility with both AMD and ARM architectures.
-- ﻿﻿CI/CD integration for automated vulnerability scanning.
-- ﻿﻿Maintenance of GitHub Advisories, ensuring consumers have access to the latest images.
-- ﻿﻿On-demand installation via a request form, allowing consumers to request specific tools.
-- ﻿﻿GUI based solution for those who has love-hate relation with CLI.
+- Consistent and repeatable testing environments via Docker
+- Fast booting and tearing down of testing environments
+- Resource-efficient operation suitable for users with limited resources
+- Browser-based access using the local IP address
+- Platform independence, enhancing accessibility and usability
+- Go binary support for deploying Nightingale on any architecture.
+- Compatibility with both AMD and ARM architectures.
+- CI/CD integration for automated vulnerability scanning.
+- Maintenance of GitHub Advisories, ensuring consumers have access to the latest images.
+- On-demand installation via a request form, allowing consumers to request specific tools.
+- GUI based solution for those who has love-hate relation with CLI.
 
 ### Why?
 

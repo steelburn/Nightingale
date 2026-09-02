@@ -5,8 +5,8 @@
 # License: GPL-3.0
 ###############################################################################
 
-# Base image with programming language support
-FROM ghcr.io/rajanagori/nightingale_programming_image:stable
+ARG BASE_TAG=stable
+FROM ghcr.io/rajanagori/nightingale_programming_image:${BASE_TAG}
 
 # Metadata labels following OCI standards
 LABEL org.opencontainers.image.title="Nightingale Wordlists" \
