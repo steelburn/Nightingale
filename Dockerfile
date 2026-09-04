@@ -14,7 +14,16 @@
 ###############################################################################
 
 ARG IMAGE_TAG=stable
-FROM ghcr.io/rajanagori/nightingale_programming_image:${IMAGE_TAG} AS base
+# COPY --from=image:${ARG} does not expand. Name the GHCR images as stages first.
+FROM ghcr.io/rajanagori/nightingale_programming_image:${IMAGE_TAG} AS programming
+FROM ghcr.io/rajanagori/nightingale_web_vapt_image:${IMAGE_TAG} AS web_vapt
+FROM ghcr.io/rajanagori/nightingale_osint_tools_image:${IMAGE_TAG} AS osint
+FROM ghcr.io/rajanagori/nightingale_mobile_vapt_image:${IMAGE_TAG} AS mobile
+FROM ghcr.io/rajanagori/nightingale_network_vapt_image:${IMAGE_TAG} AS network
+FROM ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:${IMAGE_TAG} AS forensic
+FROM ghcr.io/rajanagori/nightingale_wordlist_image:${IMAGE_TAG} AS wordlist
+
+FROM programming AS base
 
 ARG IMAGE_TAG
 ARG ARCH=amd64
@@ -75,14 +84,14 @@ ENV TOOLS_WEB_VAPT=/home/tools_web_vapt \
 
 ENV PATH="${PATH}:/home/.local/bin:${BINARIES}:/home/go/bin:${TOOLS_NETWORK_VAPT}/neo4j/bin"
 
-COPY --from=ghcr.io/rajanagori/nightingale_web_vapt_image:${IMAGE_TAG} ${TOOLS_WEB_VAPT} ${TOOLS_WEB_VAPT}
-COPY --from=ghcr.io/rajanagori/nightingale_web_vapt_image:${IMAGE_TAG} ${GREP_PATTERNS} ${GREP_PATTERNS}
-COPY --from=ghcr.io/rajanagori/nightingale_osint_tools_image:${IMAGE_TAG} ${TOOLS_OSINT} ${TOOLS_OSINT}
-COPY --from=ghcr.io/rajanagori/nightingale_mobile_vapt_image:${IMAGE_TAG} ${TOOLS_MOBILE_VAPT} ${TOOLS_MOBILE_VAPT}
-COPY --from=ghcr.io/rajanagori/nightingale_network_vapt_image:${IMAGE_TAG} ${TOOLS_NETWORK_VAPT} ${TOOLS_NETWORK_VAPT}
-COPY --from=ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:${IMAGE_TAG} ${TOOLS_RED_TEAMING} ${TOOLS_RED_TEAMING}
-COPY --from=ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:${IMAGE_TAG} ${TOOLS_FORENSICS} ${TOOLS_FORENSICS}
-COPY --from=ghcr.io/rajanagori/nightingale_wordlist_image:${IMAGE_TAG} ${WORDLIST} ${WORDLIST}
+COPY --from=web_vapt ${TOOLS_WEB_VAPT} ${TOOLS_WEB_VAPT}
+COPY --from=web_vapt ${GREP_PATTERNS} ${GREP_PATTERNS}
+COPY --from=osint ${TOOLS_OSINT} ${TOOLS_OSINT}
+COPY --from=mobile ${TOOLS_MOBILE_VAPT} ${TOOLS_MOBILE_VAPT}
+COPY --from=network ${TOOLS_NETWORK_VAPT} ${TOOLS_NETWORK_VAPT}
+COPY --from=forensic ${TOOLS_RED_TEAMING} ${TOOLS_RED_TEAMING}
+COPY --from=forensic ${TOOLS_FORENSICS} ${TOOLS_FORENSICS}
+COPY --from=wordlist ${WORDLIST} ${WORDLIST}
 
 ## Modules stage: Python tools plus vendored binaries. Go tools are installed
 ## once in the final stage (rebuild-go-binaries.sh) after /home/go is overlaid.
@@ -156,9 +165,9 @@ RUN set -eux; \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* 2>/dev/null || true; \
     find ${TOOLS_WEB_VAPT} ${TOOLS_OSINT} ${TOOLS_MOBILE_VAPT} ${TOOLS_NETWORK_VAPT} ${TOOLS_RED_TEAMING} ${TOOLS_FORENSICS} ${WORDLIST} -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true;
 
-COPY --from=ghcr.io/rajanagori/nightingale_programming_image:${IMAGE_TAG} /usr/local /usr/local
-COPY --from=ghcr.io/rajanagori/nightingale_programming_image:${IMAGE_TAG} /opt/venv3 /opt/venv3
-COPY --from=ghcr.io/rajanagori/nightingale_programming_image:${IMAGE_TAG} /usr/local/go /home/go
+COPY --from=programming /usr/local /usr/local
+COPY --from=programming /opt/venv3 /opt/venv3
+COPY --from=programming /usr/local/go /home/go
 
 RUN set -eux; \
     chmod +x /usr/local/bin/debian-apt-security.sh /usr/local/bin/pip-security-upgrade.sh; \
