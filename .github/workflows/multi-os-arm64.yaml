@@ -109,7 +109,6 @@ jobs:
         image-tag: arm64
         commit-hash: ${{ env.COMMIT_HASH }}
         driver: ${{ steps.setup.outputs.driver }}
-        build-args: BASE_TAG=arm64
 
   build-main:
     needs: build-dependent
@@ -145,10 +144,8 @@ jobs:
         image-tag: arm64
         commit-hash: ${{ env.COMMIT_HASH }}
         driver: ${{ steps.setup.outputs.driver }}
-        build-args: |
-          IMAGE_TAG=arm64
-          ARCH=arm64
-          EXTRA_APT_PACKAGES=netcat-openbsd
+        arch: arm64
+        extra-apt-packages: netcat-openbsd
 
     - name: Set up QEMU
       if: ${{ github.event_name == 'schedule' || inputs.build_type == 'all' }}

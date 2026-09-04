@@ -19,8 +19,12 @@ inputs:
   driver:
     description: Buildx driver from docker-login-buildx; GHA cache is skipped for docker.
     required: true
-  build-args:
-    description: Optional KEY=value lines for docker/build-push-action.
+  arch:
+    description: Value for the Dockerfile ARCH build-arg (amd64 or arm64).
+    required: false
+    default: amd64
+  extra-apt-packages:
+    description: Value for EXTRA_APT_PACKAGES, for example netcat-openbsd on ARM64.
     required: false
     default: ''
   registry:
@@ -47,7 +51,11 @@ runs:
         sbom: true
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        build-args: ${{ inputs.build-args }}
+        build-args: |
+          IMAGE_TAG=${{ inputs.image-tag }}
+          BASE_TAG=${{ inputs.image-tag }}
+          ARCH=${{ inputs.arch }}
+          EXTRA_APT_PACKAGES=${{ inputs.extra-apt-packages }}
         tags: |
           ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
           ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.commit-hash }}
@@ -63,7 +71,11 @@ runs:
         push: true
         provenance: mode=max
         sbom: true
-        build-args: ${{ inputs.build-args }}
+        build-args: |
+          IMAGE_TAG=${{ inputs.image-tag }}
+          BASE_TAG=${{ inputs.image-tag }}
+          ARCH=${{ inputs.arch }}
+          EXTRA_APT_PACKAGES=${{ inputs.extra-apt-packages }}
         tags: |
           ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.image-tag }}
           ${{ inputs.registry }}/${{ inputs.image-name }}:${{ inputs.commit-hash }}

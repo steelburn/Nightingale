@@ -109,7 +109,6 @@ jobs:
         image-tag: stable
         commit-hash: ${{ env.COMMIT_HASH }}
         driver: ${{ steps.setup.outputs.driver }}
-        build-args: BASE_TAG=stable
 
   build-main:
     needs: build-dependent
@@ -144,9 +143,7 @@ jobs:
         image-tag: stable
         commit-hash: ${{ env.COMMIT_HASH }}
         driver: ${{ steps.setup.outputs.driver }}
-        build-args: |
-          IMAGE_TAG=stable
-          ARCH=amd64
+        arch: amd64
 
     - name: Audit Go stdlib in final image
       if: ${{ github.event_name == 'schedule' || inputs.build_type == 'all' }}
